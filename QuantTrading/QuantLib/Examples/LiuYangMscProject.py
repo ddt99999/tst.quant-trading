@@ -5,17 +5,21 @@ Created on Mon Aug 15 17:46:43 2016
 @author: tongtz
 """
 
+from scipy.stats import poisson
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-poisson = np.random.poisson(0.5, 100)
 
-def get_c_constant(N):
+def get_c_constant(lamb, N):
     total = 0
     
     for k in range(1,N):
-        total += k*np.random.poisson(k)
+        total += k*poisson.pmf(k, lamb)
+        
+    return total
+        
+
         
 #def draw_graph(graph):
 #    # extract nodes from graph
@@ -97,27 +101,40 @@ def get_c_constant(N):
 
 # graph example
 if __name__ == "__main__":
-    nodes = range(16)
-    #graph = nx.barabasi_albert_graph(10,6)
-    G1 = nx.barabasi_albert_graph(10,5)
-    G2 = nx.barbell_graph(10,10)
-    G3 = nx.erdos_renyi_graph(5,0.15)
-    maze=nx.sedgewick_maze_graph()
-    CG1 = nx.disjoint_union(G1,G3)
-    #CG2 = nx.disjoint_union(CG1,maze)
-    
-    nx.draw(CG1)
-    plt.show()
-    
-    for (u,v,d) in CG1.edges(data='weight'):
-        #if d<0.5: 
-        print('(%d, %d)'%(u,v))
-        
-    print(nx.degree(CG1))
+#    nodes = range(16)
+#    #graph = nx.barabasi_albert_graph(10,6)
+#    G1 = nx.barabasi_albert_graph(10,5)
+#    G2 = nx.barbell_graph(10,10)
+#    G3 = nx.erdos_renyi_graph(5,0.15)
+#    maze=nx.sedgewick_maze_graph()
+#    CG1 = nx.disjoint_union(G1,G3)
+#    #CG2 = nx.disjoint_union(CG1,maze)
+#    
+#    nx.draw(CG1)
+#    plt.show()
+#    
+#    for (u,v,d) in CG1.edges(data='weight'):
+#        #if d<0.5: 
+#        print('(%d, %d)'%(u,v))
+#        
+#    print(nx.degree(CG1))
     
     # initial value
     n1 = 5
     prob_n1 = np.random.poisson(n1) # level 0
+    
+    # pre-calculate the c
+    lambdas = [l for l in np.arange(0.5,3.5,0.5)]
+    c = {key: 0.0 for key in lambdas}
+    
+    s = np.random.poisson(lam=(100., 500.), size=(100, 2))
+    
+    N = 100
+    
+    for lamb in lambdas:
+        c[lamb] = get_c_constant(lamb, N)
+        
+    #u_hat = 
     
     # level 1
     
