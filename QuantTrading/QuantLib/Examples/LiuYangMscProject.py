@@ -31,14 +31,14 @@ def calculate_u(u, c, K):
         sum_u += (np.exp(-c)*(c**(k-1))/np.math.factorial(k-1)) * u ** (k-1) 
     return sum_u
     
-def evaluate_u(c, K, P):
+def evaluate_u(c, K, epsilon):
     u = 0.0
     new_u = 0.001
-    while abs(new_u - u) > 0.00001:
+    while abs(new_u - u) > epsilon:
         u = new_u
         new_u = calculate_u(u, c, K)
         
-    return u
+    return new_u
         
 '''
 N     : total number of power 
