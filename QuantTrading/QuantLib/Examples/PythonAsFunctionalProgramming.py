@@ -27,8 +27,8 @@ sum_to(5)
 
 # To get prime numbers
 # prime(n) = for all x [(2 <= x < 1+ sqrt(n)) and (n(mod x) != 0)]
-n = 0
-primes = not any(n%p == 0 for p in range(2, 1+int(math.sqrt(n))))
+n = 22
+is_primes = lambda n: not any(n%p == 0 for p in range(2, 1+int(math.sqrt(n))))
 
 
 '''
@@ -242,20 +242,19 @@ def legs(lat_lon_iter):
  
   
 with urllib.request.urlopen("file:./Winter%202012-2013.kml") as source:
-    flts = tuple(legs(float_from_pair(lat_lon_kml(row_iter_kml(source))))) 
-    print("FLOATS")
-    print(flts)
-    source.seek(0)
-    print("STRINGS")
-    v1 = tuple(lat_lon_kml(row_iter_kml(source)))
-    print(v1)
-    source.seek(0)
-    trip = ((start, end, round(haversine(start, end), 4)) 
-            for start, end in legs(float_from_pair(lat_lon_kml(row_iter_kml(source)))))
+    #flts = tuple(legs(float_from_pair(lat_lon_kml(row_iter_kml(source))))) 
+    #print("FLOATS")
+    #print(flts)
+    #source.seek(0)
+    #print("STRINGS")
+    #v1 = tuple(lat_lon_kml(row_iter_kml(source)))
+    #print(v1)
+    #source.seek(0)
+    trip = list(((start, end, round(haversine(start, end), 4)) 
+            for start, end in legs(float_from_pair(lat_lon_kml(row_iter_kml(source))))))
 
+    
 
-for start, end, dist in trip:
-    print(start, end, dist)    
 
 n = 10
 flat = ['2', '3', '5', '7', '11', '13', '17', '19', '23', '29', '31', '37', '41', '43', '47', '53', '59', '61', '67', '71' ]
@@ -279,3 +278,102 @@ test = reversed(list((digits(12,2))))
     
 for elem in test:
     print(elem)
+    
+'''
+CHAPTER 5 - High Order Functions
+
+As we can see, there are three varieties of higher-order functions, which are
+as follows:
+• Functions that accept a function as one of its arguments
+• Functions that return a function
+• Functions that accept a function and return a function
+Python offers several higher-order functions of the first variety. We'll look at these built-in higher-order functions in this chapter. 
+We'll look at a few of the library modules that offer higher-order functions in later chapters.
+'''
+
+'''
+We have three ways of getting the maximum and minimum distances from this
+sequence of values. They are as follows:
+• Extract the distance with a generator function. This will give us only the distances, as we've discarded the other two attributes of each leg. 
+  This won't work out well if we have any additional processing requirements.
+• Use the unwrap(process(wrap())) pattern. This will give us the legs with the longest and shortest distances. From these, we can extract 
+  just the distance, if that's all that's needed. The other two will give us the leg that contains the maximum and minimum distances.
+• Use the max() and min() functions as higher-order functions.
+'''
+
+# First method - not good as trip has to be called 
+long, short = max(dist for start, end, dist in trip), min(dist for start, end, dist in trip)
+print(long, short)
+
+# Second method - unwrap(process(wrap())) pattern
+def wrap(iterable):
+    return ((leg[2], leg) for leg in iterable)
+    
+def unwrap(dist_leg):
+    distance, leg = dist_leg
+    return leg
+    
+long, short = unwrap(max(wrap(trip))), unwrap(min(wrap(trip)))
+
+# Third method
+def by_dist(leg):
+    lat, lon, dist = leg
+    return dist
+    
+long, short = max(trip, key=by_dist), min(trip, key=by_dist)
+print(long, short)
+
+# Using the map() function to apply a function to a collection
+text= """\
+... 2 3 5 7 11 13 17 19 23 29
+... 31 37 41 43 47 53 59 61 67 71
+... 73 79 83 89 97 101 103 107 109 113
+... 127 131 137 139 149 151 157 163 167 173
+... 179 181 191 193 197 199 211 223 227 229
+... """
+
+data = list(v for line in text.splitlines() for v in line.split())
+data_int = list(map(int, data))
+
+#map(lambda x: (start(x),end(x),dist(x)*6076.12/5280), trip)
+
+with urllib.request.urlopen("file:./Winter%202012-2013.kml") as source:
+    path = tuple(float_from_pair(lat_lon_kml(row_iter_kml(source))))
+    trip = map(lambda start_end: (start_end[0], start_end[1], haversine(*start_end)), zip(path, path[1:]))
+    distances2= map(lambda s, e: (s, e, haversine(s, e)), path, path[1:])
+    
+long = list(filter(lambda leg: by_dist(leg) >= 50, trip))
+
+sum_ans = sum(filter(lambda x: x%3==0 or x%5==0, range(10)))
+
+primes = list(filter(is_primes, range(2,100)))
+
+# Using filter() to identify outliers
+dist_data = list(map(by_dist, trip))
+
+tail = iter([1,2,3,None,4,5,6].pop, None)
+list(tail)
+
+# Building higher-irder functions with Callables
+
+def group_by_iter(n, iterable):
+    n_rows = tuple(next(iterable) for i in range(n))
+    while n_rows:
+        yield n_rows
+        n_rows = tuple(next(iterable) for i in range(n))
+        
+group_vals = list(group_by_iter(7, filter(lambda x: x%3==0 or x%5==0, range(100))))
+
+from collections.abc import Callable
+
+class NullAware(Callable):
+    def __init__(self, func):
+        self.func = func
+        
+    def __call__(self, arg):
+        return None if arg is None else self.func(arg)
+        
+null_log_scale = NullAware(math.log)       
+
+data = [10,100,None,50,60]
+scaled = list(map(null_log_scale, data))
