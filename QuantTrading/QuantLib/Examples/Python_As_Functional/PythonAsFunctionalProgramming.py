@@ -324,7 +324,7 @@ long, short = max(trip, key=by_dist), min(trip, key=by_dist)
 print(long, short)
 
 # Using the map() function to apply a function to a collection
-text= """\
+text = """\
 ... 2 3 5 7 11 13 17 19 23 29
 ... 31 37 41 43 47 53 59 61 67 71
 ... 73 79 83 89 97 101 103 107 109 113
@@ -332,8 +332,8 @@ text= """\
 ... 179 181 191 193 197 199 211 223 227 229
 ... """
 
-data = list(v for line in text.splitlines() for v in line.split())
-data_int = list(map(int, data))
+chars = list(v for line in text.splitlines() for v in line.split())
+data_int = list(map(int, chars))
 
 #map(lambda x: (start(x),end(x),dist(x)*6076.12/5280), trip)
 
@@ -432,6 +432,243 @@ def mapg(f, collection):
     for x in collection:
         yield f(x)
 
-    
 
+# Group-by reductions - from many to fewer
+quantized = (5*(dist//5) for start, stop, dist in trip)
+
+# Building a mapping with Counter
+from collections import Counter
+Counter(quantized)
+
+Counter(quantized).most_common()
+
+# Building a mapping by sorting
+def group_sort(trip):
+    def group(data):
+        sorted_data= iter(sorted(data))
+        previous, count = next(sorted_data), 1
+        for d in sorted_data:
+            if d == previous:
+                count += 1
+            elif previous is not None: # and d != previous
+                yield previous, count
+                previous, count = d, 1 # reset the count for new d
+            else:
+                raise Exception("Bad design problem")
+        yield previous, count
+    quantized = (5*(dist//5) for start, stop, dist in trip)
+    return dict(group(quantized))
+
+data = group_sort(trip)  
+
+# Grouping or partitioning data by key values
+'''
+There are no limits to the kinds of reductions we might want to apply to grouped
+data. We might have data with a number of independent and dependent variables.
+We can consider partitioning the data by an independent variable and computing
+summaries like maximum, minimum, average, and standard deviation of the values
+in each partition.
+
+The essential trick to doing more sophisticated reductions is to collect all of the data
+values into each group. The Counter() function merely collects counts of identical
+items. We want to create sequences of the original items based on a key value.
+Looked at in a more general way, each 5-mile bin will contain the entire collection of
+legs of that distance, not merely a count of the legs. We can consider the partitioning
+as a recursion or as a stateful application of defaultdict(list) object. We'll look at
+the recursive definition of a groupby() function, since it's easy to design.
+
+Clearly, the groupby(C, key) method for an empty collection, C, is the empty
+dictionary, dict(). Or, more usefully, the empty defaultdict(list) object.
+For a non-empty collection, we need to work with item C[0], the head, and
+recursively process sequence C[1:], the tail. We can use head, *tail = C
+command to do this parsing of the collection, as follows:
+'''
+import collections
+
+C = [1,2,3,4,5]
+head, *tail = C
+
+def group_by(key, data):
+    def group_into(key, collection, dictionary):
+        if len(list(collection)) == 0:
+            return dictionary
+        print(list(collection))
+        head, *tail = collection
+        print(head)
+        dictionary[key(head)].append(head)
+        return group_into(key, tail, dictionary)
+        
+    return group_into(key, data, collections.defaultdict(list))
+
+binned_distance = lambda leg: 5*(leg[2]//5)
+by_distance = group_by(binned_distance, trip)
+
+import pprint
+for distance in sorted(by_distance):
+    print(distance)
+    pprint.pprint(by_distance[distance])
+
+def partition(key, data):
+    dictionary = collections.defaultdict(list)
+    for head in data:
+        dictionary[key(head)].append(head)
+    return dictionary
     
+# Writing more general group-by reductions
+
+start   = lambda s, e, d: s
+end     = lambda s, e, d: e
+dist    = lambda s, e, d: d
+latitude = lambda lat, lon: lat
+longitude = lambda lat, lon: lon
+
+point = ((35.505665, -76.653664), (35.508335, -76.654999), 0.1731)
+
+start(*point)
+latitude(*start(*point))
+
+for distance in sorted(by_distance):
+    print(distance, max(by_distance[distance], key=lambda pt: latitude(*start(*point))))
+    
+# Writing high-order reductions
+
+def s0(data):
+    return sum(1 for x in data) # or len(data)
+
+def s1(data):
+    return sum(x for x in data) # sum(data)
+
+def s2(data):
+    return sum(x*x for x in data)
+    
+def sum_f(function, data):
+    return sum(function(x) for x in data)
+    
+N= sum_f(lambda x: 1, data) # x**0
+S= sum_f(lambda x: x, data) # x**1
+S2= sum_f( lambda x: x*x, data ) # x**2
+
+def sum_filter_f(filter, function, data):
+    return sum(function(x) for x in data if filter(x))
+    
+count_= lambda x: 1
+sum_ = lambda x: x
+valid = lambda x: x is not None
+N = sum_filter_f(valid, count_, data)
+
+# Writing file parsers
+import re  # regular expression module
+
+Color = namedtuple("Color", ("r", "g", "b", "name"))
+
+def row_iter_gpl(file_obj):
+    header_pattern = re.compile(r"GIMP Palette\nName:\s*(.*?)\nColumns:\s*(.*?)\n#\n", re.M)
+    
+    def read_head(file_obj):
+        match = header_pattern.match("".join(file_obj.readline() for _ in range(4)))
+        return (match.group(1), match.group(2)), file_obj
+        
+    def read_tail(headers, file_obj):
+        return headers, (next_line.split() for next_line in file_obj)
+    
+    return read_tail(*read_head(file_obj))
+    
+def color_palette(headers, row_iter):
+    name, columns = headers
+    colors = tuple(Color(int(r), int(g), int(b), " ".join(name)) for r,g,b,*name in row_iter)
+    return name, columns, colors
+    
+with open("crayola.gpl") as source:
+    name, columns, colors = color_palette(*row_iter_gpl(source))
+    print(name, columns)
+    for color in colors:
+        print(color.r, color.g, color.b, color.name)
+        
+        
+'''
+CHAPTER 7 - Additional Tuple Techniques
+
+Using an immutable namedtuple as a record
+
+We can do any of the following, depending on the circumstances:
+• Use lambdas (or functions) to select a named item using the index
+• Use lambdas (or functions) with *parameter to select an item by parameter name, which maps to an index
+• Use namedtuples to select an item by attribute name or index
+
+'''
+
+# These definitions don't provide much guidance on the data types involved. We can
+# use a simple naming convention to make this a bit more clear. The following are
+# some examples of selection functions that use a suffix:
+start_point = lambda leg: leg[0]
+distance_nm= lambda leg: leg[2]
+latitude_value= lambda point: point[0]
+
+# When used judiciously, this can be helpful. It can also degenerate into an elaborately
+# complex Hungarian notation as a prefix (or suffix) of each variable.
+# The second technique uses the *parameter notation to conceal some details of the
+# index positions. The following are some selection functions that use the * notation:
+    
+start= lambda start, end, distance: start
+end= lambda start, end, distance: end
+distance= lambda start, end, distance: distance
+latitude= lambda lat, lon: lat
+longitude= lambda lat, lon: lon
+
+# The third technique is the namedtuple function. In this case, we have nested
+# namedtuple functions such as the following:
+Leg = namedtuple("Leg", ("start", "end", "distance"))
+Point = namedtuple("Point", ("latitude", "longitude"))
+
+# Avoiding stateful classes by using families of tuples
+
+def row_iter( source ):
+    """Read a CSV file and emit a sequence of rows.
+
+    >>> import io
+    >>> data= io.StringIO( "1\\t2\\t3\\n4\\t5\\t6\\n" )
+    >>> list(row_iter(data))
+    [['1', '2', '3'], ['4', '5', '6']]
+    """
+    rdr= csv.reader( source, delimiter="\t" )
+    return rdr
+
+def float_none( data ):
+    """Float conversion: return None instead of ValueError exception.
+
+    >>> float_none('abc')
+    >>> float_none('1.23')
+    1.23
+    """
+    try:
+        data_f= float(data)
+        return data_f
+    except ValueError:
+        return None
+
+def head_map_filter( row_iter ):
+    """Removing headers by applying a filter to get rows with 8 values.
+
+    >>> rows= [ ["Anscombe's quartet"], ['I', 'II', 'III', 'IV'], ['x','y','x','y','x','y','x','y'], ['1','2','3','4','5','6','7','8']]
+    >>> list(head_map_filter( rows ))
+    [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]]
+    """
+    float_row = lambda row: list(map(float_none, row))
+
+    all_numeric = lambda row: all(row) and len(row) == 8
+
+    return filter(all_numeric, map(float_row, row_iter))
+
+with open("Anscombe.txt") as source:
+    data = tuple(head_map_filter(row_iter(source)))
+    series_I= tuple(series(0,data))
+    series_II= tuple(series(1,data))
+    series_III= tuple(series(2,data))
+    series_IV= tuple(series(3,data))
+    
+y_rank= tuple(enumerate(sorted(series_I, key=lambda p: p.y)))
+xy_rank= tuple(enumerate(sorted(y_rank, key=lambda rank: rank[1].x)))
+
+x_rank = lambda ranked: ranked[0]
+y_rank= lambda ranked: ranked[1][0]
+raw = lambda ranked: ranked[1][1]
