@@ -377,3 +377,61 @@ null_log_scale = NullAware(math.log)
 
 data = [10,100,None,50,60]
 scaled = list(map(null_log_scale, data))
+
+class Sum_Filter(Callable):
+    __slots__ = ["filter", "function"]
+    def __init__(self, filter, function):
+        self.filter = filter
+        self.function = function
+    
+    def __call__(self, iterable):
+        return sum(self.function(x) for x in iterable if self.filter(x))
+        
+count_not_none = Sum_Filter(lambda x: x is not None, lambda x: 1)
+data = [1, 2, 4, None, 3, 4, 1, None]
+count_data = count_not_none(data)
+
+'''
+CHAPTER 6 - Recursive and Reduction
+
+'''
+
+def fibonacci(n):
+    f = [0]*(n+1)
+    
+    f[0] = 0
+    f[1] = 1
+    f[2] = 1
+    
+    for i in range(3,n+1):
+        f[i] = f[i-1] + f[i-2]
+    
+    return f, f[n]
+    
+f = []    
+f, fib = fibonacci(15)
+
+# Processing collections via recursion
+
+'''
+We've defined the mapping of a function to an empty collection as an empty sequence. We've also
+specified recursively with a three step expression. First, apply the function to all of the 
+collection except the last element, creating a sequence object. Then apply the function
+to the last element. Finally, append the last calculation to the previously built sequence
+'''
+def mapr(f, collection):
+    if len(collection) == 0:
+        return []
+    return mapr(f, collection[:-1]) + [f(collection[:-1])]
+    
+# Tail-call optimization
+def mapf(f, collection):
+    return (f(x) for x in collection)
+
+def mapg(f, collection):
+    for x in collection:
+        yield f(x)
+
+    
+
+    
