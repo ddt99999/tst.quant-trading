@@ -11,10 +11,22 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import sympy as sp
 
-def plot_line(data, x_axis_title, y_axis_title):
-    plt.plot(data)
+def plot_line(data, graph_title, x_axis_title, y_axis_title):
+    plt.title(graph_title)
     plt.xlabel(x_axis_title)
     plt.ylabel(y_axis_title)
+    plt.plot(data)
+    plt.show()
+    
+def plot_scatter(dictionary, graph_title, x_axis_title, y_axis_title):
+    plt.title(graph_title)
+    plt.xlabel(x_axis_title)
+    plt.ylabel(y_axis_title)
+    
+    for key in dictionary.keys():
+        plt.scatter(key,dictionary[key])
+    
+    plt.legend(dictionary.keys())
     plt.show()
 
 def get_c_constant(lamb, N):
@@ -189,56 +201,71 @@ def find_giant_cluster_probability(total_node, prob):
     
     return giant_cluster_prob
     
+def measure_graph_degree_prob(sub_graph, graph, k, total_node):
+    sub_graph_degree_count_with_k = get_degree_count_with_k(sub_graph, k)
+    random_graph_degree_count_with_k = get_degree_count_with_k(graph, k)
+    
+    conditional_prob_with_k = 0 if random_graph_degree_count_with_k == 0 else (sub_graph_degree_count_with_k / random_graph_degree_count_with_k)
+    total_prob_with_k = sub_graph_degree_count_with_k / total_node
+    
+    return conditional_prob_with_k, total_prob_with_k
+    
 def get_mean(values, N):
     return sum(values) / N
     
-def simulate_giant_cluster_experiment(run_no = 1):
-    run_no = 10
-    total_node = 1000
-    prob = 0.0015
-    max_degree = 10
+def simulate_giant_cluster_experiment(run_no = 10, total_node=1000, max_lambda = 3.0, max_degree = 10):
     conditional_prob_with_k_dict = {}
     total_prob_with_k_dict = {}
     
-    giant_cluster_probability_list = []
+    giant_cluster_probability_dict = {}
 
-    for k in range(1, max_degree+1):
-        conditional_prob_with_k_dict[k] = []
-        total_prob_with_k_dict[k] = []
+    # lambda range from 0.5,1.0,1.5,2.0,2.5,3.0
+    lambda_range = list(map(lambda x: x/10.0, range(5, int(max_lambda*10+5), 5)))
+    degree_range = [x+1 for x in range(0,max_degree)]
+    for lamb in lambda_range:
+        conditional_prob_with_k_dict[lamb] = {}
+        total_prob_with_k_dict[lamb] = {}
+        giant_cluster_probability_dict[lamb] = []
+        
+        for k in degree_range:
+            conditional_prob_with_k_dict[lamb][k] = []
+            total_prob_with_k_dict[lamb][k] = []
 
     for i in range(1, run_no + 1):
-        random_graph = nx.erdos_renyi_graph(total_node,prob)
-        giant_cluster = get_giant_cluster(random_graph)
-        degree_sequence = get_degree_sequence(giant_cluster)
-
-        giant_cluster_probability = get_subgraph_ratio_with_full_random_graph(len(degree_sequence), total_node)        
-        giant_cluster_probability_list.append(giant_cluster_probability)
-                    
-        for k in range(1,max_degree+1):
-            giant_cluster_degree_count_with_k = get_degree_count_with_k(giant_cluster, k)
-            total_prob_with_k = giant_cluster_degree_count_with_k / total_node
-            
-            total_prob_with_k_dict[k].append(total_prob_with_k)
-
-            random_graph_degree_count_with_k = get_degree_count_with_k(random_graph, k)
-                   
-            conditional_prob_with_k = 0 if random_graph_degree_count_with_k == 0 else float(giant_cluster_degree_count_with_k / random_graph_degree_count_with_k)
-            conditional_prob_with_k_dict[k].append(conditional_prob_with_k)
-            #degree_with_k_ratio_list.append(degree_ratio)
-            
-            #conditional_prob_with_k_dict[k] = degree_with_k_ratio_list
+        for lamb in lambda_range:
+            prob = lamb / total_node
+            random_graph = nx.erdos_renyi_graph(total_node,prob)
+            giant_cluster = get_giant_cluster(random_graph)
+            degree_sequence = get_degree_sequence(giant_cluster)
+    
+            giant_cluster_probability = get_subgraph_ratio_with_full_random_graph(len(degree_sequence), total_node)        
+            giant_cluster_probability_dict[lamb].append(giant_cluster_probability)
+                        
+            for k in range(1,max_degree+1):
+                conditional_prob_with_k, total_prob_with_k = measure_graph_degree_prob(giant_cluster, random_graph, k, total_node)
+                conditional_prob_with_k_dict[lamb][k].append(conditional_prob_with_k)
+                total_prob_with_k_dict[lamb][k].append(total_prob_with_k)
     
     conditional_prob_with_k_bin = {}
     total_prob_with_k_bin = {}
-    for k in range(1, max_degree+1):       
-        conditional_prob_with_k_bin[k] = get_mean(conditional_prob_with_k_dict[k], run_no)
-        total_prob_with_k_bin[k] = get_mean(total_prob_with_k_dict[k], run_no)  
+    for lamb in lambda_range:
+        conditional_prob_with_k_bin[lamb] = {}
+        total_prob_with_k_bin[lamb] = {}
+        
+        for k in degree_range:       
+            conditional_prob_with_k_bin[lamb][k] = get_mean(conditional_prob_with_k_dict[lamb][k], run_no)
+            total_prob_with_k_bin[lamb][k] = get_mean(total_prob_with_k_dict[lamb][k], run_no)  
+        
+        plot_scatter(conditional_prob_with_k_bin[lamb], "conditional_prob_with_k vs degree with lambda %f" % lamb, "degree", "conditional_prob_with_k")
     
     #conditional_prob_with_k_dict[k].append(conditional_probability_with_k)
     #total_prob_with_k_dict[k].append(total_probability_with_k)
-    
-    giant_cluster_probability = get_mean(giant_cluster_probability_list, run_no)
-    print(1 - giant_cluster_probability)
+    giant_cluster_probability_bin = {}
+    for lamb in lambda_range:
+        giant_cluster_probability_bin[lamb] = get_mean(giant_cluster_probability_dict[lamb], run_no)
+        print(1 - giant_cluster_probability_bin[lamb])
+        
+    plot_scatter(giant_cluster_probability_bin, "giant_cluster_probability vs lambda", "lambda", "giant_cluster_probability")
     
     
 
@@ -369,7 +396,7 @@ if __name__ == "__main__":
 #    solutions = get_solution_list(sol)
     
     proportions = population_dynamic_simulation(10000, 1000, poisson_dist_generator, 2.0, 0)
-    plot_line(proportions, "steps", "zeros-population ratio")
+    plot_line(proportions, "population dynamic graph", "steps", "zeros-population ratio")
 #    str_expr = get_equations_in_str(0.5, 15, poisson_distribution)
 #    print(str_expr)
 #    expr = sp.sympify(str_expr)
