@@ -260,12 +260,13 @@ def simulate_giant_cluster_experiment(run_no = 10, total_node=1000, max_lambda =
     
     #conditional_prob_with_k_dict[k].append(conditional_probability_with_k)
     #total_prob_with_k_dict[k].append(total_probability_with_k)
-    giant_cluster_probability_bin = {}
+    not_in_giant_cluster_probability_bin = {}
     for lamb in lambda_range:
-        giant_cluster_probability_bin[lamb] = get_mean(giant_cluster_probability_dict[lamb], run_no)
-        print(1 - giant_cluster_probability_bin[lamb])
+        not_in_giant_cluster_probability = 1 - get_mean(giant_cluster_probability_dict[lamb], run_no)
+        not_in_giant_cluster_probability_bin[lamb] = not_in_giant_cluster_probability
+        print(not_in_giant_cluster_probability_bin[lamb])
         
-    plot_scatter(giant_cluster_probability_bin, "giant_cluster_probability vs lambda", "lambda", "giant_cluster_probability")
+    plot_scatter(not_in_giant_cluster_probability_bin, "not in giant_cluster_probability vs lambda", "lambda", "giant_cluster_probability")
     
     
 
