@@ -11,10 +11,22 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import sympy as sp
 
-def plot_line(data, x_axis_title, y_axis_title):
-    plt.plot(data)
+def plot_line(data, graph_title, x_axis_title, y_axis_title):
+    plt.title(graph_title)
     plt.xlabel(x_axis_title)
     plt.ylabel(y_axis_title)
+    plt.plot(data)
+    plt.show()
+    
+def plot_scatter(dictionary, graph_title, x_axis_title, y_axis_title):
+    plt.title(graph_title)
+    plt.xlabel(x_axis_title)
+    plt.ylabel(y_axis_title)
+    
+    for key in dictionary.keys():
+        plt.scatter(key,dictionary[key])
+    
+    plt.legend(dictionary.keys())
     plt.show()
 
 def get_c_constant(lamb, N):
@@ -143,6 +155,121 @@ def population_dynamic_simulation(simulation_count, population_size, random_numb
         proportions.append(evaluate_population_dynamics(population, random_number_generator, *args))
     
     return proportions
+    
+def evaluate_poisson_u(c):
+    u = 0.0
+    pos_u = 0.0001
+    while abs(pos_u - u) > 0.00001:
+        u = pos_u
+        pos_u = np.exp(c*(u-1))
+        
+    return u
+    
+def get_giant_cluster(random_graph):
+    return max(nx.connected_component_subgraphs(random_graph), key=len)
+    
+def get_degree_sequence(graph):
+    return list(nx.degree(graph).values()) # degree sequence
+    
+def get_degree_count_with_k(graph, k):
+    degree_sequence=list(nx.degree(graph).values()) # degree sequence
+    
+    count = 0
+    for degree in degree_sequence:
+        if degree == k:
+            count += 1           
+    return count 
+    
+def get_subgraph_ratio_with_full_random_graph(subgraph_size, full_graph_size):
+    return float(subgraph_size / full_graph_size)
+    
+def find_giant_cluster_probability(total_node, prob):
+    random_graph = nx.erdos_renyi_graph(total_node,prob)
+    
+    # find the largest giant cluster
+    largest_giant_cluster = max(nx.connected_component_subgraphs(random_graph), key=len)
+    
+#    for s in nx.nodes(giant):
+#        print('%s %d' % (s,nx.degree(G3,s)))
+#    for v in nx.nodes(G3):
+#        print('%s %d %f' % (v,nx.degree(G3,v),nx.clustering(G3,v)))
+    
+    degree_sequence=list(nx.degree(largest_giant_cluster).values()) # degree sequence
+    
+    largest_giant_cluster_size = len(degree_sequence)
+    giant_cluster_prob = largest_giant_cluster_size / total_node
+    
+    return giant_cluster_prob
+    
+def measure_graph_degree_prob(sub_graph, graph, k, total_node):
+    sub_graph_degree_count_with_k = get_degree_count_with_k(sub_graph, k)
+    random_graph_degree_count_with_k = get_degree_count_with_k(graph, k)
+    
+    conditional_prob_with_k = 0 if random_graph_degree_count_with_k == 0 else (sub_graph_degree_count_with_k / random_graph_degree_count_with_k)
+    total_prob_with_k = sub_graph_degree_count_with_k / total_node
+    
+    return conditional_prob_with_k, total_prob_with_k
+    
+def get_mean(values, N):
+    return sum(values) / N
+    
+def simulate_giant_cluster_experiment(run_no = 10, total_node=1000, max_lambda = 3.0, max_degree = 10):
+    conditional_prob_with_k_dict = {}
+    total_prob_with_k_dict = {}
+    
+    giant_cluster_probability_dict = {}
+
+    # lambda range from 0.5,1.0,1.5,2.0,2.5,3.0
+    lambda_range = list(map(lambda x: x/10.0, range(5, int(max_lambda*10+5), 5)))
+    degree_range = [x+1 for x in range(0,max_degree)]
+    for lamb in lambda_range:
+        conditional_prob_with_k_dict[lamb] = {}
+        total_prob_with_k_dict[lamb] = {}
+        giant_cluster_probability_dict[lamb] = []
+        
+        for k in degree_range:
+            conditional_prob_with_k_dict[lamb][k] = []
+            total_prob_with_k_dict[lamb][k] = []
+
+    for i in range(1, run_no + 1):
+        for lamb in lambda_range:
+            prob = lamb / total_node
+            random_graph = nx.erdos_renyi_graph(total_node,prob)
+            giant_cluster = get_giant_cluster(random_graph)
+            degree_sequence = get_degree_sequence(giant_cluster)
+    
+            giant_cluster_probability = get_subgraph_ratio_with_full_random_graph(len(degree_sequence), total_node)        
+            giant_cluster_probability_dict[lamb].append(giant_cluster_probability)
+                        
+            for k in range(1,max_degree+1):
+                conditional_prob_with_k, total_prob_with_k = measure_graph_degree_prob(giant_cluster, random_graph, k, total_node)
+                conditional_prob_with_k_dict[lamb][k].append(conditional_prob_with_k)
+                total_prob_with_k_dict[lamb][k].append(total_prob_with_k)
+    
+    conditional_prob_with_k_bin = {}
+    total_prob_with_k_bin = {}
+    for lamb in lambda_range:
+        conditional_prob_with_k_bin[lamb] = {}
+        total_prob_with_k_bin[lamb] = {}
+        
+        for k in degree_range:       
+            conditional_prob_with_k_bin[lamb][k] = get_mean(conditional_prob_with_k_dict[lamb][k], run_no)
+            total_prob_with_k_bin[lamb][k] = get_mean(total_prob_with_k_dict[lamb][k], run_no)  
+        
+        plot_scatter(conditional_prob_with_k_bin[lamb], "conditional_prob_with_k vs degree with lambda %f" % lamb, "degree", "conditional_prob_with_k")
+    
+    #conditional_prob_with_k_dict[k].append(conditional_probability_with_k)
+    #total_prob_with_k_dict[k].append(total_probability_with_k)
+    not_in_giant_cluster_probability_bin = {}
+    for lamb in lambda_range:
+        not_in_giant_cluster_probability = 1 - get_mean(giant_cluster_probability_dict[lamb], run_no)
+        not_in_giant_cluster_probability_bin[lamb] = not_in_giant_cluster_probability
+        print(not_in_giant_cluster_probability_bin[lamb])
+        
+    plot_scatter(not_in_giant_cluster_probability_bin, "not in giant_cluster_probability vs lambda", "lambda", "giant_cluster_probability")
+    
+    
+
 
 
         
@@ -230,14 +357,17 @@ if __name__ == "__main__":
 #    #graph = nx.barabasi_albert_graph(10,6)
 #    G1 = nx.barabasi_albert_graph(10,5)
 #    G2 = nx.barbell_graph(10,10)
-#    G3 = nx.erdos_renyi_graph(100,0.15)
+    simulate_giant_cluster_experiment(10)
+    ans = evaluate_poisson_u(1.5)
+    
+
 #    maze=nx.sedgewick_maze_graph()
 #    CG1 = nx.disjoint_union(G1,G3)
 #    #CG2 = nx.disjoint_union(CG1,maze)
 #    
 #    nx.draw(G3)
 #    plt.show()
-#    
+    
 #    for (u,v,d) in CG1.edges(data='weight'):
 #        #if d<0.5: 
 #        print('(%d, %d)'%(u,v))
@@ -267,7 +397,7 @@ if __name__ == "__main__":
 #    solutions = get_solution_list(sol)
     
     proportions = population_dynamic_simulation(10000, 1000, poisson_dist_generator, 2.0, 0)
-    plot_line(proportions, "steps", "zeros-population ratio")
+    plot_line(proportions, "population dynamic graph", "steps", "zeros-population ratio")
 #    str_expr = get_equations_in_str(0.5, 15, poisson_distribution)
 #    print(str_expr)
 #    expr = sp.sympify(str_expr)
