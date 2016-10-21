@@ -24,9 +24,7 @@ def run(config, testing, tickers, filename):
     initial_equity = PriceParser.parse(100000.00)
 
     # Use Yahoo Daily Price Handler
-    price_handler = YahooDailyCsvBarPriceHandler(
-        csv_dir, events_queue, tickers
-    )
+    price_handler = YahooDailyCsvBarPriceHandler(csv_dir, events_queue, tickers)
 
     # Use the KalmanPairsTrading Strategy
     strategy = KalmanPairsTradingStrategy(tickers, events_queue)
@@ -39,30 +37,27 @@ def run(config, testing, tickers, filename):
     risk_manager = ExampleRiskManager()
 
     # Use the default Portfolio Handler
-    portfolio_handler = PortfolioHandler(
-        initial_equity, events_queue, price_handler,
-        position_sizer, risk_manager
-    )
+    portfolio_handler = PortfolioHandler(initial_equity, events_queue, price_handler, position_sizer, risk_manager)
 
     # Use the ExampleCompliance component
     compliance = ExampleCompliance(config)
 
     # Use a simulated IB Execution Handler
-    execution_handler = IBSimulatedExecutionHandler(
-        events_queue, price_handler, compliance
-    )
+    execution_handler = IBSimulatedExecutionHandler(events_queue, price_handler, compliance)
 
     # Use the default Statistics
-    statistics = TearsheetStatistics(
-        config, portfolio_handler, title=""
-    )
+    statistics = TearsheetStatistics(config, portfolio_handler, title="")
 
     # Set up the backtest
     backtest = Backtest(
-        price_handler, strategy,
-        portfolio_handler, execution_handler,
-        position_sizer, risk_manager,
-        statistics, initial_equity
+        price_handler, 
+        strategy,
+        portfolio_handler, 
+        execution_handler,
+        position_sizer, 
+        risk_manager,
+        statistics, 
+        initial_equity
     )
     results = backtest.simulate_trading(testing=testing)
     statistics.save(filename)
@@ -70,12 +65,13 @@ def run(config, testing, tickers, filename):
 
 
 @click.command()
-@click.option('--config', default=settings.DEFAULT_CONFIG_FILENAME, help='Config filename')
+#@click.option('--config', default=settings.DEFAULT_CONFIG_FILENAME, help='Config filename')
+@click.option('--config', default='config.yml', help='Config filename')
 @click.option('--testing/--no-testing', default=False, help='Enable testing mode')
 @click.option('--tickers', default='SP500TR', help='Tickers (use comma)')
 @click.option('--filename', default='', help='Pickle (.pkl) statistics filename')
 def main(config, testing, tickers, filename):
-    tickers = tickers.split(",")
+    tickers = ['IEI','TLT']#tickers.split(",")
     config = settings.from_file(config, testing)
     run(config, testing, tickers, filename)
 
