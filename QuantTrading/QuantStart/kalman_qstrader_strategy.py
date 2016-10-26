@@ -100,7 +100,7 @@ class KalmanPairsTradingStrategy(AbstractStrategy):
                 
     # The core of the strategy is carried out in the calculate_signals method. Firstly we set the correct times and prices (as described above). 
     # Then we check that we have both prices for TLT and IEI, at which point we can consider new trading signals. 
-    # y is set equal to the latest price for IEI, while FF is the observation matrix containing the latest price for TLT, as well as a unity placeholder to represent the intercept 
+    # y is set equal to the latest price for IEI, while F is the observation matrix containing the latest price for TLT, as well as a unity placeholder to represent the intercept 
     # in the linear regression. The Kalman Filter is subsequently updated with these latest prices. Finally we calculate the forecast error etet and the standard deviation of the predictions, 
     # Qt−−√Qt. Let's run through this code step-by-step, as it looks a little complicated.
 
